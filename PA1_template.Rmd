@@ -1,25 +1,153 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Assignment RR 1 Week 2"
+
+output: md_document
+
+
+
 ---
 
+This is the assignment which processes and analyzes personal monitoring activity data.
 
-## Loading and preprocessing the data
+In order for this to run smoothly, you need to install packages DoBy and broman!
 
-
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
+```{r,echo=TRUE, warning=FALSE, message=FALSE}
+library("doBy")
+library(broman)
+library(lattice)
+```
 
 
-## Imputing missing values
+1) Retrieving the data and checking if variables are in proper format.
+
+```{r,echo=TRUE}
+
+#you may change the path as necessary
+
+dir<- "D:/cursuri/reproducible research/assignment 1/"    
+path<- paste(dir, "","activity.csv" , sep = "", collapse = NULL) 
+
+activity <- read.csv(path)
+
+#check the data and formats for variables
+str(activity)
+```
+
+Data should have four variables
+
+2)Calculate the total number of steps taken per day
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+byday<-summaryBy(steps~date,  data=activity, FUN=sum)
+```
+
+do a histogram of the data
+
+```{r, echo=TRUE}
+hist(byday$steps.sum, 
+     main="Histogram for Total Steps per Day",xlab="Steps", ylab="Days", ylim=c(0,35), 
+     xlim=c(0,25000),las=1, breaks=7)
+```
+
+compute mean and median of steps by day
+
+```{r, echo=TRUE, warning=FALSE}
+stepsperDayMean <- mean(byday$steps.sum, na.rm=TRUE)
+stepsperDayMedian <- median(byday$steps.sum, na.rm=TRUE)
+```
+
+
+The average number of steps by day is `r myround(stepsperDayMean, 2) `, and the median number of steps by day is `r stepsperDayMedian `
+
+3) Plot average number of steps for each time interval
+```{r, echo=TRUE}
+byinterval<-summaryBy(steps~interval,  data=activity, FUN=mean,na.rm=TRUE)
+```
+
+```{r, echo=TRUE}
+plot(byinterval,  type = "l", main = "Average Number of Steps by Time Interval", xlab = "Time interval",  ylab = "average number of steps")
+```
 
 
 
-## Are there differences in activity patterns between weekdays and weekends?
+
+and get the time interval with most steps
+
+```{r, echo=TRUE}
+maxinterval <- subset(byinterval, steps.mean==max(byinterval$steps.mean), select=interval)
+```
+The time interval for which the maximum average number of steps is recorded is `r maxinterval$interval `.
+
+4) impute missing values
+
+
+```{r, echo=TRUE}
+missing <- subset(activity, is.na(activity$steps))
+missno<-nrow(missing)
+```
+The number of missing values is `r missno`.
+
+The strategy chosen is to impute missing values based on the average number of steps per time interval.The new dataset is named 'imputted'
+
+```{r, echo=TRUE}
+imputeddata<-merge(activity, byinterval, by.x="interval", by.y="interval", all = TRUE)
+imput1<-imputeddata[complete.cases(imputeddata$steps),]
+imput2<-imputeddata[!complete.cases(imputeddata$steps),]
+imput2$steps <- imput2$steps.mean
+imputted<- rbind(imput2,imput1)
+```
+
+draw the histogram of steps by day with imputted data
+
+```{r, echo=TRUE}
+bydayi<-summaryBy(steps~date,  data=imputted, FUN=sum)
+hist(bydayi$steps.sum, 
+     main="Histogram for Total Steps per Day with Imputted Values ", xlab="Steps", ylab="Days",
+     ylim=c(0,35),xlim=c(0,25000),las=1, breaks=7)
+```
+
+compute mean and median of steps by day with imputted data
+
+```{r, echo=TRUE, warning=FALSE}
+stepsperDayMeanI <- mean(bydayi$steps.sum, na.rm=TRUE)
+stepsperDayMedianI <- median(bydayi$steps.sum, na.rm=TRUE)
+
+```
+
+
+The average number of steps by day with imputted data is `r myround(stepsperDayMeanI, 2) `, and the median number of steps by day is `r myround(stepsperDayMedianI, 2) `.
+
+This compares with is `r myround(stepsperDayMean, 2) `, and the median number of steps by day is `r stepsperDayMedian ` for original data.
+
+Imputation did not significantly change mean and median, but by comparing thi histograms we see that there is a higher numer of days with total number of steps between 10000 and 15000. 
+
+
+5) differences between activity patterns in weekdays vs weekends
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+#format the date
+imputted$dates<- as.Date(imputted$date, format = "%Y-%m-%d")
+imputted$days<-weekdays(imputted$dates)
+imputted$weekpart<-ifelse(imputted$days==c("Saturday", "Sunday"),"weekend","weekday")
+
+byintervalwd<-summaryBy(steps~interval+weekpart,   data=imputted, FUN=mean,na.rm=TRUE)
+
+xyplot(byintervalwd$steps.mean ~ byintervalwd$interval|byintervalwd$weekpart, main="Average Number of Steps by Time Interval",xlab="Time interval", ylab="Average number of steps",layout=c(2,1), type="l",  aspect = "fill")
+```
+
+There is an early peak on weekdays, and more activity on weekends that is more evenly spread and lasts until late hours.
+
+Acknowledgment:
+
+I have used supplementary resources as follows:
+
+- http://stackoverflow.com/
+
+- https://www.rstudio.com/wp-content/uploads/2015/02/rmarkdown-cheatsheet.pdf
+
+- http://www.r-bloggers.com
+
+- http://www.statmethods.net/ (Quick-R by Rob Kabacoff)
+
+- http://kbroman.org/knitr_knutshell/pages/Rmarkdown.html
+
